@@ -34,6 +34,11 @@ namespace GOB_Life_Wpf
             targetImage.Source = bitmap;
         }
 
+        public static void RenderImage(BitmapSource bitmap, Image targetImage)
+        {
+            targetImage.Source = bitmap;
+        }
+
         private bool isRunning = false;
         private string generate = "";
         private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
@@ -113,18 +118,22 @@ namespace GOB_Life_Wpf
                 int h = (int)MapBorder.ActualHeight;
 
                 // Асинхронный вызов для рендеринга изображения и обновления UI
-                
+
                 Task.Run(() =>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     simInfoText.Content = $"Шаг {main.step}, {main.queue.Count} клеток";
-                    if (renderChexBox.IsChecked.Value)
+                    if (renderChexBox.IsChecked.Value || RecordingCheck.IsChecked.Value)
                     {
                         var image = Visualize.Map(ref w, ref h, vizMode.SelectedIndex, oxRengerBox.IsChecked.Value);
-                        RenderImage(image, w, h, MapBox);
+                        var bitmap = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, image, w * 4);
+
+                        if (renderChexBox.IsChecked.Value)
+                            RenderImage(bitmap, MapBox);
+
                         if (RecordingCheck.IsChecked.Value && main.step % int.Parse(rocordInput.Text) == 0)
                         {
-                            Save(image, w, h);
+                            Save(bitmap, w, h);
                             frame++;
                         }
                     }
@@ -303,19 +312,12 @@ namespace GOB_Life_Wpf
             }
         }
 
-        private void Save(byte[] pixels, int width, int height)
+        private void Save(BitmapSource bitmap, int width, int height)
         {
-            System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            BitmapData bitmapData = bitmap.LockBits(
-                new System.Drawing.Rectangle(0, 0, width, height),
-                ImageLockMode.WriteOnly,
-                System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-
-            IntPtr ptr = bitmapData.Scan0;
-            System.Runtime.InteropServices.Marshal.Copy(pixels, 0, ptr, pixels.Length);
-            bitmap.UnlockBits(bitmapData);
-
-            bitmap.Save($"Record/{frame}.png");
+            using (var fileStream = new FileStream($"Record/{frame}.png", FileMode.Create))
+            {
+                new PngBitmapEncoder { Frames = { BitmapFrame.Create(bitmap) } }.Save(fileStream);
+            }
         }
 
         private void ClearRecord(object sender, RoutedEventArgs e)
