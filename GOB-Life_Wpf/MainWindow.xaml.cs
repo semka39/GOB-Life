@@ -314,6 +314,8 @@ namespace GOB_Life_Wpf
 
         private void Save(BitmapSource bitmap, int width, int height)
         {
+            if (!Directory.Exists("Record"))
+                Directory.CreateDirectory("Record");
             using (var fileStream = new FileStream($"Record/{frame}.png", FileMode.Create))
             {
                 new PngBitmapEncoder { Frames = { BitmapFrame.Create(bitmap) } }.Save(fileStream);
@@ -322,6 +324,9 @@ namespace GOB_Life_Wpf
 
         private void ClearRecord(object sender, RoutedEventArgs e)
         {
+            if (!Directory.Exists("Record"))
+                return;
+
             frame = 0;
             string[] files = Directory.GetFiles("Record");
             foreach (string file in files)
