@@ -802,7 +802,7 @@ namespace GOB_Life_Wpf
 
             public static void LoadGradients()
             {
-                string[] images = Directory.GetFiles("Images/Gradients");
+                string[] images = Directory.GetFiles("Images");
                 gradients = new byte[images.Length][,];
                 for (int i = 0; i < gradients.Length; i++)
                 {
