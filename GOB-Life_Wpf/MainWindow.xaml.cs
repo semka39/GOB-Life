@@ -1,7 +1,7 @@
-﻿using NCalc;
+﻿using Microsoft.Win32;
+using NCalc;
 using System;
 using System.Collections.Generic;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -117,21 +117,25 @@ namespace GOB_Life_Wpf
                 int w = (int)MapBorder.ActualWidth;
                 int h = (int)MapBorder.ActualHeight;
 
+
                 // Асинхронный вызов для рендеринга изображения и обновления UI
 
                 Task.Run(() =>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    int saveSteps = int.Parse(rocordInput.Text);
+                    bool saveFrame = RecordingCheck.IsChecked.Value && (main.step % saveSteps == 0);
+
                     simInfoText.Content = $"Шаг {main.step}, {main.queue.Count} клеток";
-                    if (renderChexBox.IsChecked.Value || RecordingCheck.IsChecked.Value)
+                    if (renderChexBox.IsChecked.Value || saveFrame)
                     {
                         var image = Visualize.Map(ref w, ref h, vizMode.SelectedIndex, oxRengerBox.IsChecked.Value);
                         var bitmap = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, image, w * 4);
 
-                        if (renderChexBox.IsChecked.Value)
+                        if (renderChexBox.IsChecked.Value || saveFrame)
                             RenderImage(bitmap, MapBox);
 
-                        if (RecordingCheck.IsChecked.Value && main.step % int.Parse(rocordInput.Text) == 0)
+                        if (saveFrame)
                         {
                             Save(bitmap, w, h);
                             frame++;
@@ -342,6 +346,38 @@ namespace GOB_Life_Wpf
             win.Activate();
         }
 
+        private void SaveSim_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "Simulation Files (*.sim)|*.sim|All Files (*.*)|*.*",
+                DefaultExt = "sim"
+            };
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                //Simulation.Save(saveFileDialog.FileName);
+            }
+        }
+
+        private void LoadSim_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Filter = "Simulation Files (*.sim)|*.sim|All Files (*.*)|*.*",
+                DefaultExt = "sim"
+            };
+            if (openFileDialog.ShowDialog() == true)
+            {
+                //Simulation.Load(openFileDialog.FileName);
+                if (!isRunning)
+                {
+                    int renW = main.width;
+                    int renH = main.height;
+                    RenderImage(Visualize.Map(ref renW, ref renH, vizMode.SelectedIndex, oxRengerBox.IsChecked.Value), renW, renH, MapBox);
+                }
+            }
+        }
+
         private void VizMode_DropDownClosed(object sender, EventArgs e)
         {
             if (!isRunning && main.cmap != null)
@@ -367,145 +403,6 @@ namespace GOB_Life_Wpf
 
     static class Simulation
     {
-        public static void Save(string path)
-        {
-            using (StreamWriter writer = new StreamWriter(path, false))
-            {
-                writer.WriteLine($"{main.width} {main.height} {main.step} 0");
-                foreach (Food f in main.fmap)
-                {
-                    if (f == null)
-                        continue;
-                    writer.WriteLine($"{f.x} {f.y} {f.nrj}");
-                }//1
-                writer.WriteLine("bots");
-                foreach (Bot b in main.queue)
-                {
-                    writer.WriteLine($"{b.x} {b.y} {b.nrj} {b.gen} {b.fgen} {b.btime} {b.predation} {b.mut} {b.rot}");
-                    StringBuilder sb = new StringBuilder();
-
-                    Dictionary<int, Gate> NGates = new Dictionary<int, Gate>();
-
-                    for (int i = 0; i < b.DNA.Length; i++)
-                    {
-                        sb.Append($"{(int)b.DNA[i]} ");
-                    }
-                    sb.Append("_");
-                    for (int i = 0; i < b.FDNA.Length; i++)
-                    {
-                        sb.Append($"{(int)b.FDNA[i]} ");
-                    }
-                    writer.WriteLine(sb.ToString());
-                    sb.Clear();
-
-                    for (int i = 0; i < b.gates.Count; i++)
-                    {
-                        Gate g = b.gates[i];
-                        sb.Append($"{(int)g.type}_");
-
-                        for (int j = 0; j < g.input.Length; j++)
-                        {
-                            sb.Append($"{g.input[j].f} {b.gates.IndexOf(g.input[j].A)} {b.gates.IndexOf(g.input[j].B)} ");
-                        }
-                        sb.Append("_");
-                        for (int j = 0; j < g.output.Length; j++)
-                        {
-                            sb.Append($"{g.output[j].f} {b.gates.IndexOf(g.output[j].A)} {b.gates.IndexOf(g.output[j].B)} ");
-                        }
-                        sb.Append("/");
-                    }
-                    writer.WriteLine(sb.ToString());
-                }//3
-                /*
-                writer.WriteLine("oxygen");
-                foreach (double o in main.oxmap)
-                {
-                    writer.Write(o);
-                }
-                */
-            }
-        }
-        /*
-        public static void Load(string path)
-        {
-            using (StreamReader reader = new StreamReader(path))
-            {
-                string[] info = reader.ReadLine().Split();
-                main.width = int.Parse(info[0]);
-                main.height = int.Parse(info[1]);
-                main.step = int.Parse(info[2]);
-                //seed = int.Parse(info[3]);
-
-                string s = reader.ReadLine();
-                while (s != "bots")
-                {
-                    string[] ss = s.Split();
-                    int x = int.Parse(ss[0]);
-                    int y = int.Parse(ss[1]);
-
-                    main.fmap[x, y] = new Food(x, y, double.Parse(ss[2]));
-                    s = reader.ReadLine();
-                }
-
-                s = reader.ReadLine();
-                while (s != "oxygen")
-                {
-                    string[] ss = s.Split();
-                    int x = int.Parse(ss[0]);
-                    int y = int.Parse(ss[1]);
-
-                    main.cmap[x, y] = new Bot(x, y, double.Parse(ss[2]));
-                    
-
-                    main.fmap[x, y] = new Food(x, y, double.Parse(ss[2]));
-                    s = reader.ReadLine();
-                }
-
-                foreach (Bot b in main.queue)
-                {
-                    writer.WriteLine($"{b.x} {b.y} {b.nrj} {b.gen} {b.fgen} {b.btime} {b.predation} {b.mut} {b.rot}");
-                    StringBuilder sb = new StringBuilder();
-
-                    Dictionary<int, Gate> NGates = new Dictionary<int, Gate>();
-
-                    for (int i = 0; i < b.DNA.Length; i++)
-                    {
-                        sb.Append($"{(int)b.DNA[i]} ");
-                    }
-                    sb.Append("_");
-                    for (int i = 0; i < b.FDNA.Length; i++)
-                    {
-                        sb.Append($"{(int)b.FDNA[i]} ");
-                    }
-                    writer.WriteLine(sb.ToString());
-                    sb.Clear();
-
-                    for (int i = 0; i < b.gates.Count; i++)
-                    {
-                        Gate g = b.gates[i];
-                        sb.Append($"{(int)g.type}_");
-
-                        for (int j = 0; j < g.input.Length; j++)
-                        {
-                            sb.Append($"{g.input[j].f} {b.gates.IndexOf(g.input[j].A)} {b.gates.IndexOf(g.input[j].B)} ");
-                        }
-                        sb.Append("_");
-                        for (int j = 0; j < g.output.Length; j++)
-                        {
-                            sb.Append($"{g.output[j].f} {b.gates.IndexOf(g.output[j].A)} {b.gates.IndexOf(g.output[j].B)} ");
-                        }
-                        sb.Append("/");
-                    }
-                    writer.WriteLine(sb.ToString());
-                }//3
-                writer.WriteLine("oxygen");
-                foreach (double o in main.oxmap)
-                {
-                    writer.Write(o);
-                }
-            }
-        }
-        */
         private static List<T[]> SplitByElement<T>(T[] array, T delimiter)
         {
             List<T[]> result = new List<T[]>();
@@ -1445,6 +1342,18 @@ namespace GOB_Life_Wpf
 
                 }
 
+                foreach (Link ouputLink in output)
+                {
+                    if (Double.IsNaN(ouputLink.f))
+                    {
+                        ouputLink.f = 0;
+                    }
+                    else if (Double.IsInfinity(ouputLink.f))
+                    {
+                        ouputLink.f = ouputLink.f > 0 ? 1 : -1;
+                    }
+                }
+
                 if (input.Length == 0)
                     return null;
 
@@ -1899,9 +1808,9 @@ namespace GOB_Life_Wpf
             private int dy = 1; //направление поворота
 
             double recSignal = -1;
-            public int mut { get; private set; } //сколько мутаций было
-            public int rot { get; private set; } //поворот
-            public int btime { get; private set; }
+            public int mut { get; set; } //сколько мутаций было
+            public int rot { get; set; } //поворот
+            public int btime;
             public int gen, fgen; //ген и ген отца
             public double nrj;
             public double predation { get; private set; } = 0.5F;
