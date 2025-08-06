@@ -12,7 +12,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+
+#pragma warning disable SYSLIB0011 // Отключает предупреждение для BinaryFormatter
 
 namespace GOB_Life_Wpf
 {
@@ -371,6 +372,15 @@ namespace GOB_Life_Wpf
 
         private void LoadSim_Click(object sender, RoutedEventArgs e)
         {
+            MessageBoxResult result = MessageBox.Show(
+    "Для сохранения и загрузки симуляций используется уязвимый BinaryFormatter. Открывайте только те файлы, которым доверяете. Хотите продолжить?",
+    "Предупреждение безопасности",
+    MessageBoxButton.OKCancel,
+    MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.OK)
+                return;
+
             OpenFileDialog openFileDialog = new OpenFileDialog
             {
                 Filter = "Simulation Files (*.sim)|*.sim|All Files (*.*)|*.*",
@@ -409,6 +419,7 @@ namespace GOB_Life_Wpf
                     RenderImage(Simulation.Visualize.Map(ref renW, ref renH, vizMode.SelectedIndex, oxRengerBox.IsChecked.Value), renW, renH, MapBox);
                 });
         }
+
 
         static class Simulation
         {
@@ -1484,6 +1495,7 @@ namespace GOB_Life_Wpf
 
             public static class Serialization
             {
+
                 public static void Save(string filename)
                 {
                     using (var stream = File.Open(filename, FileMode.Create))

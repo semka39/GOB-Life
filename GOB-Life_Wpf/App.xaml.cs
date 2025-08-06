@@ -1,17 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 
-namespace GOB_Life_Wpf
+public partial class App : Application
 {
-    /// <summary>
-    /// Логика взаимодействия для App.xaml
-    /// </summary>
-    public partial class App : Application
+    public App()
     {
+        // Включение BinaryFormatter (ОПАСНО!)
+        AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
+
+    }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
     }
 }
