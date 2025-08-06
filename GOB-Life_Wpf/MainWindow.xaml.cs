@@ -117,9 +117,9 @@ namespace GOB_Life_Wpf
             try
             {
                 Main.Tick();
+
                 int w = (int)MapBorder.ActualWidth;
                 int h = (int)MapBorder.ActualHeight;
-
 
                 // Асинхронный вызов для рендеринга изображения и обновления UI
 
@@ -143,6 +143,13 @@ namespace GOB_Life_Wpf
                             Save(bitmap, w, h);
                             frame++;
                         }
+                    }
+
+                    if (simsaveCheck.IsChecked.Value && Main.step % int.Parse(simsaveInput.Text) == 0)
+                    {
+                        if (!Directory.Exists("Saves"))
+                            Directory.CreateDirectory("Saves");
+                        Simulation.Serialization.Save($"Saves/{Main.step}.sim");
                     }
                 })
                 );
