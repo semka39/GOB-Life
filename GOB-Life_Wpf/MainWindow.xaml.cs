@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
@@ -1527,9 +1528,16 @@ namespace GOB_Life_Wpf
                 public List<Bot> queue = new List<Bot>();
                 public List<Bot> bqueue = new List<Bot>();
 
+                [NonSerialized]
                 public Random rnd = new Random();
                 public int step;
                 public Gtype[] exp = { Gtype.wait, Gtype.photosyntes, Gtype.rep, Gtype.sex, Gtype.Rrot, Gtype.Lrot, Gtype.walk, Gtype.atack, Gtype.suicide, Gtype.recomb, Gtype.trnsmt };
+
+                [OnDeserialized]
+                private void OnDeserialized(StreamingContext context)
+                {
+                    rnd = new Random();
+                }
 
                 private void Distribute(ref double[,] gasmap)
                 {
