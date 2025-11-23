@@ -23,10 +23,22 @@ namespace GOB_Life_Wpf
         static Simulation.main Main = new Simulation.main();
 
         int frame = 0;
+        // Новые поля для обработки перетаскивания мыши по MapBox
+        private bool isMouseDownOnMap = false;
+        private int lastMouseCellX = -1;
+        private int lastMouseCellY = -1;
+
         public MainWindow()
         {
             InitializeComponent();
             Simulation.Visualize.LoadGradients();
+
+            // Подписываемся на дополнительные события мыши для MapBox
+            // __MapBox__ — это Image в XAML, у которого уже присутствует обработчик MouseLeftButtonUp.
+            // Здесь добавляем обработчики для зажатой кнопки и перемещения.
+            MapBox.MouseLeftButtonDown += MapBox_MouseLeftButtonDown;
+            MapBox.MouseMove += MapBox_MouseMove;
+            MapBox.MouseLeave += MapBox_MouseLeave;
         }
 
         public static void RenderImage(byte[] pixelData, int width, int height, Image targetImage)
@@ -225,12 +237,34 @@ namespace GOB_Life_Wpf
             return null;
         }
 
-        private async void MapBox_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void MapBox_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            isMouseDownOnMap = true;
+            // Сбрасываем последнее обработанное положение, чтобы первое попадание точно обработалось
+            lastMouseCellX = lastMouseCellY = -1;
+            await ProcessMapActionAsync(e.GetPosition(MapBox));
+        }
+
+        private async void MapBox_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!isMouseDownOnMap)
+                return;
+
+            await ProcessMapActionAsync(e.GetPosition(MapBox));
+        }
+
+        private void MapBox_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // Останавливаем режим рисования при уходе курсора с MapBox
+            isMouseDownOnMap = false;
+            lastMouseCellX = lastMouseCellY = -1;
+        }
+
+        private async Task ProcessMapActionAsync(Point mousePositionInMapBox)
         {
             await semaphore.WaitAsync();
             try
             {
-                Point mousePositionInMapBox = e.GetPosition(MapBox);
                 var image = MapBox;
 
                 if (image != null && image.Source != null)
@@ -247,6 +281,17 @@ namespace GOB_Life_Wpf
 
                     int x = (int)Math.Round(relativeX / (imageWidth / Main.width));
                     int y = (int)Math.Round(relativeY / (imageHeight / Main.height));
+
+                    // Проверяем границы
+                    if (x < 0 || x >= Main.width || y < 0 || y >= Main.height)
+                        return;
+
+                    // Избегаем многократной обработки той же клетки при движении
+                    if (x == lastMouseCellX && y == lastMouseCellY)
+                        return;
+
+                    lastMouseCellX = x;
+                    lastMouseCellY = y;
 
                     switch (mouseAction.SelectedIndex)
                     {
@@ -326,6 +371,14 @@ namespace GOB_Life_Wpf
             {
                 semaphore.Release();
             }
+        }
+
+        private async void MapBox_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Завершаем режим "зажата" и в любом случае один раз обрабатываем позицию отпускания
+            isMouseDownOnMap = false;
+            await ProcessMapActionAsync(e.GetPosition(MapBox));
+            lastMouseCellX = lastMouseCellY = -1;
         }
 
         private void Save(BitmapSource bitmap, int width, int height)
